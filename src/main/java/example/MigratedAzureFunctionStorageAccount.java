@@ -10,9 +10,7 @@ import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobServiceClient;
 import com.azure.storage.blob.BlobServiceClientBuilder;
 import com.microsoft.azure.functions.ExecutionContext;
-import com.microsoft.azure.functions.OutputBinding;
 import com.microsoft.azure.functions.annotation.BindingName;
-import com.microsoft.azure.functions.annotation.BlobOutput;
 import com.microsoft.azure.functions.annotation.BlobTrigger;
 import com.microsoft.azure.functions.annotation.FunctionName;
 
@@ -22,7 +20,6 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -35,49 +32,49 @@ public class MigratedAzureFunctionStorageAccount {
     public void run(
         @BlobTrigger(name = "blob", dataType = "binary", path = "input-container/{name}") byte[] content,
         @BindingName("name") String name,
-        @BlobOutput(name = "resizedBlob", dataType = "binary", path = "output-container/{name}") OutputBinding<byte[]> resizedBlob,
-        final ExecutionContext context
-    ) {
+        final ExecutionContext context) {
         try {
+            String srcBucket = "input-container";
             String srcKey = name;
             String dstKey = "resized-" + srcKey;
 
-            // Infer the image type.
-            String REGEX = ".*\\.([^.]*)";
-            Matcher matcher = Pattern.compile(REGEX).matcher(srcKey);
-            if (!matcher.matches()) {
-                context.getLogger().info("Unable to infer image type for key " + srcKey);
-                return;
-            }
-            String imageType = matcher.group(1);
+            String imageType = inferImageType(srcKey);
             if (!(JPG_TYPE.equals(imageType)) && !(PNG_TYPE.equals(imageType))) {
                 context.getLogger().info("Skipping non-image " + srcKey);
                 return;
             }
 
-            // Read the source image and resize it
-            InputStream s3Object = new ByteArrayInputStream(content);
-            BufferedImage srcImage = ImageIO.read(s3Object);
+            BufferedImage srcImage = ImageIO.read(new ByteArrayInputStream(content));
             BufferedImage newImage = resizeImage(srcImage);
 
-            // Re-encode image to target format
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             ImageIO.write(newImage, imageType, outputStream);
-            byte[] resizedContent = outputStream.toByteArray();
 
-            // Upload new image to Azure Blob Storage
-            BlobServiceClient blobServiceClient = new BlobServiceClientBuilder()
-                .connectionString(System.getenv("AzureWebJobsStorage"))
-                .buildClient();
+            uploadToBlobStorage(outputStream.toByteArray(), dstKey, context);
 
-            BlobContainerClient containerClient = blobServiceClient.getBlobContainerClient("output-container");
-            BlobClient blobClient = containerClient.getBlobClient(dstKey);
-            blobClient.upload(new ByteArrayInputStream(resizedContent), resizedContent.length);
-
-            context.getLogger().info("Successfully resized " + srcKey + " and uploaded to " + dstKey);
+            context.getLogger().info("Successfully resized " + srcBucket + "/"
+                + srcKey + " and uploaded to output-container/" + dstKey);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            context.getLogger().severe(e.getMessage());
         }
+    }
+
+    private String inferImageType(String srcKey) {
+        String REGEX = ".*\\.([^.]*)";
+        Matcher matcher = Pattern.compile(REGEX).matcher(srcKey);
+        if (matcher.matches()) {
+            return matcher.group(1);
+        }
+        return null;
+    }
+
+    private void uploadToBlobStorage(byte[] data, String dstKey, ExecutionContext context) {
+        BlobServiceClient blobServiceClient = new BlobServiceClientBuilder()
+            .connectionString("your-storage-connection-string")
+            .buildClient();
+        BlobContainerClient containerClient = blobServiceClient.getBlobContainerClient("output-container");
+        BlobClient blobClient = containerClient.getBlobClient(dstKey);
+        blobClient.upload(new ByteArrayInputStream(data), data.length);
     }
 
     private BufferedImage resizeImage(BufferedImage srcImage) {
