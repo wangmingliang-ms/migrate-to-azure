@@ -1,4 +1,4 @@
-package example;
+package resizeimage;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.CognitoIdentity;

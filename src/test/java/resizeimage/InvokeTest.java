@@ -1,4 +1,4 @@
-package example;
+package resizeimage;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
@@ -58,7 +58,7 @@ class InvokeTest {
     S3Event event = new S3Event(records);
     
     Context context = new TestContext();
-    OriginalLambdaS3 handler = new OriginalLambdaS3();
+    ResizeImageAWSLambda handler = new ResizeImageAWSLambda();
     String result = handler.handleRequest(event, context);
     assertTrue(result.contains("Ok"));
     AWSXRay.endSegment();

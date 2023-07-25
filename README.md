@@ -57,7 +57,7 @@ You can also build the application with Maven. To use maven, add `mvn` to the co
 
     java-basic$ ./3-deploy.sh mvn
     [INFO] Scanning for projects...
-    [INFO] -----------------------< com.example:s3-java >-----------------------
+    [INFO] -----------------------< com.resizeimage:s3-java >-----------------------
     [INFO] Building s3-java-function 1.0-SNAPSHOT
     [INFO] --------------------------------[ jar ]---------------------------------
     ...

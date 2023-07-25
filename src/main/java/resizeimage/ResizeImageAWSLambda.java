@@ -1,4 +1,4 @@
-package example;
+package resizeimage;
 
 import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
@@ -24,8 +24,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 // Handler value: example.Handler
-public class OriginalLambdaS3 implements RequestHandler<S3Event, String> {
-    private static final Logger logger = LoggerFactory.getLogger(OriginalLambdaS3.class);
+public class ResizeImageAWSLambda implements RequestHandler<S3Event, String> {
+    private static final Logger logger = LoggerFactory.getLogger(ResizeImageAWSLambda.class);
     private static final float MAX_DIMENSION = 100;
     private final String JPG_TYPE = "jpg";
     private final String PNG_TYPE = "png";
@@ -57,7 +57,7 @@ public class OriginalLambdaS3 implements RequestHandler<S3Event, String> {
 
             // Download the image from S3 into a stream
             S3Client s3Client = S3Client.builder().build();
-            InputStream s3Object = getObject(s3Client, srcBucket, srcKey);
+            InputStream s3Object = downloadImage(s3Client, srcBucket, srcKey);
 
             // Read the source image and resize it
             BufferedImage srcImage = ImageIO.read(s3Object);
@@ -68,7 +68,7 @@ public class OriginalLambdaS3 implements RequestHandler<S3Event, String> {
             ImageIO.write(newImage, imageType, outputStream);
 
             // Upload new image to S3
-            putObject(s3Client, outputStream, srcBucket, dstKey, imageType);
+            uploadImage(s3Client, outputStream, srcBucket, dstKey, imageType);
 
             logger.info("Successfully resized " + srcBucket + "/"
                 + srcKey + " and uploaded to " + srcBucket + "/" + dstKey);
@@ -78,7 +78,7 @@ public class OriginalLambdaS3 implements RequestHandler<S3Event, String> {
         }
     }
 
-    private InputStream getObject(S3Client s3Client, String bucket, String key) {
+    private InputStream downloadImage(S3Client s3Client, String bucket, String key) {
         GetObjectRequest getObjectRequest = GetObjectRequest.builder()
             .bucket(bucket)
             .key(key)
@@ -86,8 +86,8 @@ public class OriginalLambdaS3 implements RequestHandler<S3Event, String> {
         return s3Client.getObject(getObjectRequest);
     }
 
-    private void putObject(S3Client s3Client, ByteArrayOutputStream outputStream,
-                           String bucket, String key, String imageType) {
+    private void uploadImage(S3Client s3Client, ByteArrayOutputStream outputStream,
+                             String bucket, String key, String imageType) {
         Map<String, String> metadata = new HashMap<>();
         metadata.put("Content-Length", Integer.toString(outputStream.size()));
         if (JPG_TYPE.equals(imageType)) {

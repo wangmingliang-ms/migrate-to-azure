@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  */
 
-package example;
+package resizeimage;
 
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
@@ -23,24 +23,30 @@ import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class MigratedAzureFunctionStorageAccount {
+public class ResizeImageAzureFunctions {
     private static final float MAX_DIMENSION = 100;
     private final String JPG_TYPE = "jpg";
     private final String PNG_TYPE = "png";
 
-    @FunctionName("ImageResizeFunction")
+    @FunctionName("ResizeImage")
     public void run(
         @BlobTrigger(name = "blob", dataType = "binary", path = "input-container/{name}") byte[] content,
         @BindingName("name") String name,
         final ExecutionContext context) {
         try {
             String srcBucket = "input-container";
-            String srcKey = name;
-            String dstKey = "resized-" + srcKey;
+            String dstKey = "resized-" + name;
 
-            String imageType = inferImageType(srcKey);
+            // Infer the image type.
+            String REGEX = ".*\\.([^.]*)";
+            Matcher matcher = Pattern.compile(REGEX).matcher(name);
+            if (!matcher.matches()) {
+                context.getLogger().info("Unable to infer image type for key " + name);
+                return;
+            }
+            String imageType = matcher.group(1);
             if (!(JPG_TYPE.equals(imageType)) && !(PNG_TYPE.equals(imageType))) {
-                context.getLogger().info("Skipping non-image " + srcKey);
+                context.getLogger().info("Skipping non-image " + name);
                 return;
             }
 
@@ -50,30 +56,22 @@ public class MigratedAzureFunctionStorageAccount {
             ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
             ImageIO.write(newImage, imageType, outputStream);
 
-            uploadToBlobStorage(outputStream.toByteArray(), dstKey, context);
+            uploadImage(outputStream.toByteArray(), dstKey, context);
 
             context.getLogger().info("Successfully resized " + srcBucket + "/"
-                + srcKey + " and uploaded to output-container/" + dstKey);
+                + name + " and uploaded to output-container/" + dstKey);
         } catch (IOException e) {
             context.getLogger().severe(e.getMessage());
         }
     }
 
-    private String inferImageType(String srcKey) {
-        String REGEX = ".*\\.([^.]*)";
-        Matcher matcher = Pattern.compile(REGEX).matcher(srcKey);
-        if (matcher.matches()) {
-            return matcher.group(1);
-        }
-        return null;
-    }
-
-    private void uploadToBlobStorage(byte[] data, String dstKey, ExecutionContext context) {
+    private void uploadImage(byte[] data, String dstKey, ExecutionContext context) {
         BlobServiceClient blobServiceClient = new BlobServiceClientBuilder()
             .connectionString("your-storage-connection-string")
             .buildClient();
         BlobContainerClient containerClient = blobServiceClient.getBlobContainerClient("output-container");
         BlobClient blobClient = containerClient.getBlobClient(dstKey);
+        context.getLogger().info("Writing to: output-container/" + dstKey);
         blobClient.upload(new ByteArrayInputStream(data), data.length);
     }
 
