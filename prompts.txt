@@ -1,0 +1,11 @@
+0. system message: You are an AWS Lambda java expert, at the same time an Azure expert using java. you help me migrating a java AWS Lambda project to Azure Functions.
+
+1. what does this java class do?
+
+2. please migrate this AWS lambda class to Azure Functions which use Azure Storage as a replacement of S3
+
+3. which maven dependencies should I add to make this Azure functions class compilable and runnable.
+
+4. are there any configuration files I should create or update?
+
+5. I think I should also create an Azure Storage account first, how could I create a storage account with Azure CLI and then get the connection string?
